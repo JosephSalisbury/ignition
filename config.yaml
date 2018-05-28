@@ -1,0 +1,182 @@
+passwd:
+  users:
+  - name: joe
+    ssh_authorized_keys:
+    - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDHe1rqfRxNvymvZgyqIeXh6ZNWw/KWNGooCeB6BU5Cn8CBqdQ3kHYdSJBWZHEI6+qZ/cmtySbarzIyC2SPRR1qZ6KAKhEeAKH93e6ttkv5anUZVHOrMVJFpHipJ/+ZRhrpAE7F6z3W9wigWR7q1Xn1j+aD5s9HJh7jMRBZEG9+GFcNHmtAxgIH2zuOuDGviv1p1PG1ZDU4iWPo0rXDNXMywXIgEWOett+P6hJdIL3ZPzHVV/g84q/G1nNFfm+xnz1kwOMblwC27PzbDgGd1rnh73QSzcSKwfRRk2UBnAjFmkfZtJhLb3hfkY40nRawSG3+RLy8KHPvKy0RyESSxAd6kgDjT/tb9nK6dRvO1CHcKpUBd7DNUaIRGE7VfgyEJtRo+acwMTXZId+abPiFuoRzO2QSUmz+0MfWWh/XrREuavQ7yrL93oS4W5LjwZRI5ldZ55OOG5ffFzZRdThb2khiRdJdG4yaJS+5iiiBbG6+vJps5Fyhor7rASKEkWpQCmnRuH1ZadMP80wDkmXrDk/rUinGC5HkZVqA2SPm30lx+7TJLyb9fDFIbkd2LoOKHtSEV/P59B7yayrERR6wmoItVLu1ET0tux6DEtF4Qf8c+KhmMWgGnCYr6PL/WNO4NNU0DohAs/g3RxHw2F5S9xQUIxoWMs8dUIxkSLkA0POISQ=="
+    groups: ["sudo", "docker"]
+
+storage:
+  files:
+  - filesystem: "root"
+    path: "/etc/hostname"
+    mode: 0644
+    contents:
+      inline: "vm"
+
+  - filesystem: "root"
+    path: "/etc/resolv.conf"
+    mode: 0644
+    contents:
+      inline: |
+        nameserver 8.8.8.8
+
+  - filesystem: "root"
+    path: "/home/joe/.bashrc"
+    mode: 0644
+    user:
+      name: joe
+    group:
+      name: joe
+    contents:
+      inline: |
+        source /home/joe/.bash_aliases
+
+        set -o vi
+
+        function fetch {
+            sudo mkdir -p /go/src/github.com/;
+            sudo chown -R joe:joe /go;
+            mkdir /go/src/github.com/$1/;
+            cd /go/src/github.com/$1/;
+            git clone https://github.com/$1/$2;
+            cd /go/src/github.com/$1/$2;
+        }
+
+        function prompt_command {
+            EXIT_CODE=$?
+            EXIT_PHRASE=''
+            if [ $EXIT_CODE -ne 0 ]; then
+                EXIT_PHRASE="$EXIT_CODE-"
+            fi
+            export PS1="$EXIT_PHRASE\\$ "
+        }
+
+        eval `ssh-agent -s` > /dev/null 2>&1
+        ssh-add /secrets/giantswarm-rsa > /dev/null 2>&1
+        if ! gpg --list-keys 2>&1 | grep -q 'salisbury.joseph@gmail.com' ; then
+            gpg --import /secrets/private-gpg > /dev/null 2>&1
+            gpg --import /secrets/public-gpg > /dev/null 2>&1
+        fi
+
+        export GPG_TTY=$(tty)
+        export OPSCTL_GITHUB_TOKEN=$(cat /secrets/opsctl-github-token)
+        export OPSCTL_GPG_PASSWORD=$(cat /secrets/opsctl-gpg-password)
+        export PROMPT_COMMAND=prompt_command
+
+  - filesystem: "root"
+    path: "/home/joe/.bash_aliases"
+    mode: 0644
+    user:
+      name: joe
+    group:
+      name: joe
+    contents:
+      inline: |
+        alias go='docker run -ti --rm -v /go:/go/ -w $(pwd) golang go'
+        alias ls='ls -FGlh'
+
+  - filesystem: "root"
+    path: "/home/joe/.gitconfig"
+    mode: 0644
+    user:
+      name: joe
+    group:
+      name: joe
+    contents:
+      inline: |
+        [user]
+            name = Joseph Salisbury
+            email = salisbury.joseph@gmail.com
+            signingkey = 1C6A41349CB55511
+
+        [help]
+            autocorrect = -1
+
+        [alias]
+            d = diff
+            st = status --short --branch
+            co = checkout
+            lg = log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%C(bold blue)<%an>%Creset' --abbrev-commit
+            b = branch
+
+        [commit]
+            gpgsign = true
+            template = /home/joe/.gittemplate
+
+        [credential]
+            helper = store --file=/secrets/gitcredentials
+
+        [url "https://github.com/"]
+            insteadOf = git://github.com/
+
+  - filesystem: "root"
+    path: "/home/joe/.gittemplate"
+    mode: 0644
+    user:
+      name: joe
+    group:
+      name: joe
+    contents:
+      inline: |
+        # If this commit is applied, then it (e.g: Removes the foo)
+
+        # Towards this issue
+
+        # And this is _why_ we did it
+
+  - filesystem: "root"
+    path: "/home/joe/.vimrc"
+    mode: 0644
+    user:
+      name: joe
+    group:
+      name: joe
+    contents:
+      inline: |
+        " reload if the file changes
+        set autoread
+
+systemd:
+  units:
+  - name: openvpn.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=OpenVPN
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Environment="OPENVPN_CONTAINER=openvpn"
+      ExecStartPre=-/usr/bin/docker stop ${OPENVPN_CONTAINER}
+      ExecStartPre=-/usr/bin/docker rm ${OPENVPN_CONTAINER}
+      ExecStart=/usr/bin/docker run \
+          --cap-add NET_ADMIN \
+          --device /dev/net/tun \
+          --name ${OPENVPN_CONTAINER} \
+          -v /secrets/vpn.ovpn:/vpn/vpn.ovpn \
+          --net=host \
+          quay.io/josephsalisbury/openvpn:latest \
+          --config /vpn/vpn.ovpn
+      ExecStop=/usr/bin/docker stop ${OPENVPN_CONTAINER}
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - name: secrets.mount
+    enable: true
+    contents: |
+      [Mount]
+      What=/dev/vdb1
+      Where=/secrets
+      Type=vfat
+      Options=ro
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - name: locksmithd.service
+    mask: true
+
+  - name: update-engine.service
+    mask: true
