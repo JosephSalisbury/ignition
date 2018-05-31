@@ -63,6 +63,9 @@ storage:
         export OPSCTL_GPG_PASSWORD=$(cat /secrets/opsctl-gpg-password)
         export PROMPT_COMMAND=prompt_command
 
+        while [ ! -f /opt/bin/tmux ]; do echo "waiting for tmux..."; sleep 5; done
+        [[ ! $TERM =~ screen ]] && [ -z $TMUX ] && exec tmux new-session -A -s default
+
   - filesystem: "root"
     path: "/home/joe/.bash_aliases"
     mode: 0644
@@ -125,6 +128,62 @@ storage:
         # And this is _why_ we did it
 
   - filesystem: "root"
+    path: "/home/joe/.tmux.conf"
+    mode: 0644
+    user:
+      name: joe
+    group:
+      name: joe
+    contents:
+      inline: |
+        # add shortcut to reload config file
+        bind r source-file ~/.tmux.conf
+        # change ctrl-d to detach
+        bind-key -n C-d detach
+
+        # enable utf8
+        set -g utf8
+        set-window-option -g utf8 on
+
+        # make tmux display things in 256 colors
+        set -g default-terminal "screen-256color"
+
+        # colour bottom bar text
+        set -g status-fg colour249
+
+        # colour bottom bar
+        set -g status-bg colour16
+
+        # update status bar every half second
+        set -g status-interval 1
+
+        # bump right status bar length
+        set -g status-right-length 100
+
+        # add working directory and time to status bar
+        set -g status-right "#(/home/joe/.tmux-right-status.sh)"
+
+  - filesystem: "root"
+    path: "/home/joe/.tmux-right-status.sh"
+    mode: 0744
+    user:
+      name: joe
+    group:
+      name: joe
+    contents:
+      inline: |
+        #!/bin/bash
+
+        path="$(tmux display-message -p -F "#{pane_current_path}")"
+
+        git_info=" "
+        if [ -d ${path}/.git ]; then
+            git_info=$(cd ${path}; echo -n " ( "; git rev-parse --abbrev-ref HEAD; $(git diff-index --quiet HEAD -- || echo "* "); echo -n ") ")
+        fi
+
+        echo ${path}${git_info}$(date +"%H:%M")
+
+  - filesystem: "root"
     path: "/home/joe/.vimrc"
     mode: 0644
     user:
@@ -138,6 +197,57 @@ storage:
 
 systemd:
   units:
+  - name: opt-bin.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=opt-bin
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      ExecStart=/usr/bin/mkdir -p /opt/bin
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - name: get-static-get.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=Get static-get
+      Type=oneshot
+      After=opt-bin.service network-online.target
+      Requires=opt-bin.service network-online.target
+      RemainAfterExit=true
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      ExecStart=/usr/bin/curl https://raw.githubusercontent.com/minos-org/minos-static/master/static-get -o /opt/bin/static-get
+      ExecStart=/usr/bin/chmod +x /opt/bin/static-get
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - name: get-tmux.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=Get tmux
+      After=get-static-get.service network-online.target
+      Requires=get-static-get.service network-online.target
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      ExecStart=/opt/bin/static-get --extract tmux
+      ExecStart=/usr/bin/mv ./tmux-1.9a/bin/tmux /opt/bin/tmux
+      ExecStart=/usr/bin/rm -rf ./tmux*
+
+      [Install]
+      WantedBy=multi-user.target
+
   - name: openvpn.service
     enable: true
     contents: |
