@@ -273,18 +273,6 @@ systemd:
       [Install]
       WantedBy=multi-user.target
 
-  - name: secrets.mount
-    enable: true
-    contents: |
-      [Mount]
-      What=/dev/vdb1
-      Where=/secrets
-      Type=vfat
-      Options=ro
-
-      [Install]
-      WantedBy=multi-user.target
-
   - name: locksmithd.service
     mask: true
 
