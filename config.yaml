@@ -77,6 +77,8 @@ storage:
       inline: |
         alias go='docker run -ti --rm -v /go:/go/ -w $(pwd) golang go'
         alias ls='ls -FGlh'
+        alias vi='/opt/bin/squashfs-root/usr/bin/nvim'
+        alias vim='/opt/bin/squashfs-root/usr/bin/nvim'
 
   - filesystem: "root"
     path: "/home/joe/.gitconfig"
@@ -163,6 +165,9 @@ storage:
         # add working directory and time to status bar
         set -g status-right "#(/home/joe/.tmux-right-status.sh)"
 
+        # set escape-time low to help nvim
+        set-option -sg escape-time 10
+
   - filesystem: "root"
     path: "/home/joe/.tmux-right-status.sh"
     mode: 0744
@@ -244,6 +249,26 @@ systemd:
       ExecStart=/opt/bin/static-get --extract tmux
       ExecStart=/usr/bin/mv ./tmux-1.9a/bin/tmux /opt/bin/tmux
       ExecStart=/usr/bin/rm -rf ./tmux*
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - name: get-neovim.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=Get neovim
+      After=network-online.target
+      Requires=network-online.target
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      ExecStart=/usr/bin/curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim.appimage
+      ExecStart=/bin/chmod 777 /nvim.appimage
+      ExecStart=/nvim.appimage --appimage-extract
+      ExecStart=/usr/bin/mv /squashfs-root /opt/bin
+      ExecStart=/bin/chmod 777 -R /opt/bin/squashfs-root/
 
       [Install]
       WantedBy=multi-user.target
