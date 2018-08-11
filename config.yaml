@@ -18,6 +18,7 @@ storage:
     mode: 0644
     contents:
       inline: |
+        nameserver 10.0.253.1
         nameserver 8.8.8.8
 
   - filesystem: "root"
@@ -294,6 +295,21 @@ systemd:
           quay.io/josephsalisbury/openvpn:latest \
           --config /vpn/vpn.ovpn
       ExecStop=/usr/bin/docker stop ${OPENVPN_CONTAINER}
+      ExecStopPost=/usr/bin/ip addr add dev tun0 local 10.0.255.94 peer 10.0.255.93
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - name: openvpn-watchdog.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=OpenVPN Watchdog
+      After=openvpn.service
+      Requires=openvpn.service
+
+      [Service]
+      ExecStart=/bin/bash -c 'while true; do if ping -c 1 10.0.253.1; then echo "VPN up"; else echo "VPN down" && sudo ip addr add dev tun0 local 10.0.255.94 peer 10.0.255.93 && sudo systemctl restart openvpn.service; fi; sleep 30; done'
 
       [Install]
       WantedBy=multi-user.target
