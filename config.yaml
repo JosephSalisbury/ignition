@@ -192,7 +192,7 @@ storage:
 
         load="$(cat /proc/loadavg | awk '{print $2}')"
 
-        echo ${path}${git_info}"("INTERNET: ${internet_status}")" "("VPN: ${vpn_status}")" ${load} $(date +"%H:%M")
+        echo ${path}${git_info}"( "${internet_status} / ${vpn_status}" )" ${load} $(date +"%H:%M")
 
   - filesystem: "root"
     path: "/home/joe/.internet-status"
@@ -203,7 +203,7 @@ storage:
       name: joe
     contents:
       inline: |
-        DOWN
+        down
 
   - filesystem: "root"
     path: "/home/joe/.vpn-status"
@@ -214,7 +214,7 @@ storage:
       name: joe
     contents:
       inline: |
-        DOWN
+        down
 
   - filesystem: "root"
     path: "/home/joe/.vimrc"
@@ -334,7 +334,7 @@ systemd:
       Description=Internet Watchdog
 
       [Service]
-      ExecStart=/bin/bash -c 'while true; do if ping -c 1 8.8.8.8; then echo "UP" > /home/joe/.internet-status; else echo "DOWN" > /home/joe/.internet-status; fi; sleep 30; done'
+      ExecStart=/bin/bash -c 'while true; do if ping -c 1 8.8.8.8; then echo "up" > /home/joe/.internet-status; else echo "down" > /home/joe/.internet-status; fi; sleep 30; done'
 
       [Install]
       WantedBy=multi-user.target
@@ -346,7 +346,7 @@ systemd:
       Description=OpenVPN Watchdog
 
       [Service]
-      ExecStart=/bin/bash -c 'while true; do if ping -c 1 10.0.253.1; then echo "UP" > /home/joe/.vpn-status; else echo "DOWN" > /home/joe/.vpn-status && sudo systemctl restart openvpn.service; fi; sleep 30; done'
+      ExecStart=/bin/bash -c 'while true; do if ping -c 1 10.0.253.1; then echo "up" > /home/joe/.vpn-status; else echo "down" > /home/joe/.vpn-status && sudo systemctl restart openvpn.service; fi; sleep 30; done'
 
       [Install]
       WantedBy=multi-user.target
