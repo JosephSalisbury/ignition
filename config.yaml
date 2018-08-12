@@ -52,6 +52,8 @@ storage:
             export PS1="$EXIT_PHRASE\\$ "
         }
 
+        chmod 400 /secrets/*
+
         eval `ssh-agent -s` > /dev/null 2>&1
         ssh-add /secrets/giantswarm-rsa > /dev/null 2>&1
         if ! gpg --list-keys 2>&1 | grep -q 'salisbury.joseph@gmail.com' ; then
@@ -187,12 +189,17 @@ storage:
             git_info=$(cd ${path}; echo -n " ( "; git rev-parse --abbrev-ref HEAD; $(git diff-index --quiet HEAD -- || echo "* "); echo -n ") ")
         fi
 
+        kubectl_info=" "
+        if kubectl config current-context > /dev/null 2>&1; then
+            kubectl_info=$(echo -n " ( "; kubectl config current-context; echo -n " ) ")
+        fi
+
         internet_status="$(cat /home/joe/.internet-status)"
         vpn_status="$(cat /home/joe/.vpn-status)"
 
-        load="$(cat /proc/loadavg | awk '{print $2}')"
+        load="$(cat /proc/loadavg | awk '{print $1}')"
 
-        echo ${path}${git_info}"( "${internet_status} / ${vpn_status}" )" ${load} $(date +"%H:%M")
+        echo ${path}${git_info}${kubectl_info}"( "${internet_status} / ${vpn_status}" )" ${load} $(date +"%H:%M")
 
   - filesystem: "root"
     path: "/home/joe/.internet-status"
@@ -297,6 +304,24 @@ systemd:
       ExecStart=/nvim.appimage --appimage-extract
       ExecStart=/usr/bin/mv /squashfs-root /opt/bin
       ExecStart=/bin/chmod 777 -R /opt/bin/squashfs-root/
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - name: get-kubectl.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=Get kubectl
+      After=network-online.target
+      Requires=network-online.target
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      ExecStart=/bin/bash -c 'curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl'
+      ExecStart=/usr/bin/mv ./kubectl /opt/bin
+      ExecStart=/bin/chmod +x /opt/bin/kubectl
 
       [Install]
       WantedBy=multi-user.target
