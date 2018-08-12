@@ -187,9 +187,21 @@ storage:
             git_info=$(cd ${path}; echo -n " ( "; git rev-parse --abbrev-ref HEAD; $(git diff-index --quiet HEAD -- || echo "* "); echo -n ") ")
         fi
 
+        internet_status="$(cat /home/joe/.internet-status)"
         vpn_status="$(cat /home/joe/.vpn-status)"
 
-        echo ${path}${git_info}"("VPN: ${vpn_status}")" $(date +"%H:%M")
+        echo ${path}${git_info}"("INTERNET: ${internet_status}")" "("VPN: ${vpn_status}")" $(date +"%H:%M")
+
+  - filesystem: "root"
+    path: "/home/joe/.internet-status"
+    mode: 0644
+    user:
+      name: joe
+    group:
+      name: joe
+    contents:
+      inline: |
+        DOWN
 
   - filesystem: "root"
     path: "/home/joe/.vpn-status"
@@ -309,6 +321,18 @@ systemd:
           --config /vpn/vpn.ovpn
       ExecStop=/usr/bin/docker stop ${OPENVPN_CONTAINER}
       ExecStopPost=/usr/bin/ip addr add dev tun0 local 10.0.255.94 peer 10.0.255.93
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - name: internet-watchdog.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=Internet Watchdog
+
+      [Service]
+      ExecStart=/bin/bash -c 'while true; do if ping -c 1 8.8.8.8; then echo "UP" > /home/joe/.internet-status; else echo "DOWN" > /home/joe/.internet-status; fi; sleep 30; done'
 
       [Install]
       WantedBy=multi-user.target
