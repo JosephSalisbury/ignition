@@ -190,7 +190,9 @@ storage:
         internet_status="$(cat /home/joe/.internet-status)"
         vpn_status="$(cat /home/joe/.vpn-status)"
 
-        echo ${path}${git_info}"("INTERNET: ${internet_status}")" "("VPN: ${vpn_status}")" $(date +"%H:%M")
+        load="$(cat /proc/loadavg | awk '{print $2}')"
+
+        echo ${path}${git_info}"("INTERNET: ${internet_status}")" "("VPN: ${vpn_status}")" ${load} $(date +"%H:%M")
 
   - filesystem: "root"
     path: "/home/joe/.internet-status"
