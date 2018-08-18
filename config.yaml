@@ -30,13 +30,11 @@ storage:
       name: joe
     contents:
       inline: |
-        source /home/joe/.bash_aliases
-
-        set -o vi
+        if [ -f ~/.bash_aliases ]; then
+            source /home/joe/.bash_aliases
+        fi
 
         function fetch {
-            sudo mkdir -p /go/src/github.com/;
-            sudo chown -R joe:joe /go;
             mkdir /go/src/github.com/$1/;
             cd /go/src/github.com/$1/;
             git clone https://github.com/$1/$2;
@@ -52,7 +50,18 @@ storage:
             export PS1="$EXIT_PHRASE\\$ "
         }
 
+        set -o vi
+
         chmod 400 /secrets/*
+
+        export GPG_TTY=$(tty)
+        export PROMPT_COMMAND=prompt_command
+
+        export OPSCTL_GITHUB_TOKEN=$(cat /secrets/opsctl-github-token)
+        export OPSCTL_GPG_PASSWORD=$(cat /secrets/opsctl-gpg-password)
+        export OPSCTL_OPSGENIE_TOKEN=$(cat /secrets/opsctl-opsgenie-token)
+
+        export PATH="/go/src/github.com/giantswarm/opsctl/:$PATH"
 
         eval `ssh-agent -s` > /dev/null 2>&1
         ssh-add /secrets/giantswarm-rsa > /dev/null 2>&1
@@ -60,11 +69,6 @@ storage:
             gpg --import /secrets/private-gpg > /dev/null 2>&1
             gpg --import /secrets/public-gpg > /dev/null 2>&1
         fi
-
-        export GPG_TTY=$(tty)
-        export OPSCTL_GITHUB_TOKEN=$(cat /secrets/opsctl-github-token)
-        export OPSCTL_GPG_PASSWORD=$(cat /secrets/opsctl-gpg-password)
-        export PROMPT_COMMAND=prompt_command
 
         while [ ! -f /opt/bin/tmux ]; do echo "waiting for tmux..."; sleep 5; done
         [[ ! $TERM =~ screen ]] && [ -z $TMUX ] && exec tmux new-session -A -s default
@@ -237,6 +241,22 @@ storage:
 
 systemd:
   units:
+  - name: go.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=go
+      After=basic.target
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      ExecStart=/usr/bin/mkdir -p /go/src/github.com/
+      ExecStart=/usr/bin/chown -R joe:joe /go
+
+      [Install]
+      WantedBy=multi-user.target
+
   - name: opt-bin.service
     enable: true
     contents: |
@@ -257,8 +277,8 @@ systemd:
       [Unit]
       Description=Get static-get
       Type=oneshot
-      After=opt-bin.service network-online.target
-      Requires=opt-bin.service network-online.target
+      After=network-online.target opt-bin.service
+      Requires=network-online.target opt-bin.service
       RemainAfterExit=true
 
       [Service]
@@ -275,8 +295,8 @@ systemd:
     contents: |
       [Unit]
       Description=Get tmux
-      After=get-static-get.service network-online.target
-      Requires=get-static-get.service network-online.target
+      After=network-online.target opt-bin.service get-static-get.service
+      Requires=network-online.target opt-bin.service get-static-get.service
 
       [Service]
       Type=oneshot
@@ -293,8 +313,8 @@ systemd:
     contents: |
       [Unit]
       Description=Get neovim
-      After=network-online.target
-      Requires=network-online.target
+      After=network-online.target opt-bin.service
+      Requires=network-online.target opt-bin.service
 
       [Service]
       Type=oneshot
@@ -313,8 +333,8 @@ systemd:
     contents: |
       [Unit]
       Description=Get kubectl
-      After=network-online.target
-      Requires=network-online.target
+      After=network-online.target opt-bin.service
+      Requires=network-online.target opt-bin.service
 
       [Service]
       Type=oneshot
@@ -326,13 +346,32 @@ systemd:
       [Install]
       WantedBy=multi-user.target
 
+  - name: get-opsctl.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=Get opsctl
+      After=network-online.target go.service
+      Requires=network-online.target go.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      User=joe
+      ExecStart=/usr/bin/mkdir -p /go/src/github.com/giantswarm
+      ExecStart=/usr/bin/git clone https://github.com/giantswarm/opsctl /go/src/github.com/giantswarm/opsctl
+      ExecStart=/usr/bin/docker run --rm -v /go:/go/ -w /go/src/github.com/giantswarm/opsctl golang go build
+
+      [Install]
+      WantedBy=multi-user.target
+
   - name: openvpn.service
     enable: true
     contents: |
       [Unit]
       Description=OpenVPN
-      After=docker.service
-      Requires=docker.service
+      After=network-online.target docker.service
+      Requires=network-online.target docker.service
 
       [Service]
       Environment="OPENVPN_CONTAINER=openvpn"
