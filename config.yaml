@@ -62,6 +62,7 @@ storage:
         export OPSCTL_GPG_PASSWORD=$(cat /secrets/opsctl-gpg-password)
         export OPSCTL_OPSGENIE_TOKEN=$(cat /secrets/opsctl-opsgenie-token)
 
+        export PATH="/go/src/github.com/giantswarm/gsctl/:$PATH"
         export PATH="/go/src/github.com/giantswarm/opsctl/:$PATH"
 
         eval `ssh-agent -s` > /dev/null 2>&1
@@ -69,6 +70,12 @@ storage:
         if ! gpg --list-keys 2>&1 | grep -q 'salisbury.joseph@gmail.com' ; then
             gpg --import /secrets/private-gpg > /dev/null 2>&1
             gpg --import /secrets/public-gpg > /dev/null 2>&1
+        fi
+
+        if [ ! -f ~/.config/gsctl/config.yaml ]; then
+            mkdir -p ~/.config/gsctl/
+            cp /secrets/gsctl-config.yaml ~/.config/gsctl/config.yaml
+            chmod 600 ~/.config/gsctl/config.yaml
         fi
 
         while [ ! -f /opt/bin/tmux ]; do echo "waiting for tmux..."; sleep 5; done
@@ -343,6 +350,25 @@ systemd:
       ExecStart=/usr/bin/mkdir -p /go/src/github.com/giantswarm
       ExecStart=/usr/bin/git clone https://github.com/giantswarm/opsctl /go/src/github.com/giantswarm/opsctl
       ExecStart=/usr/bin/docker run --rm -v /go:/go/ -v /tmp/go-cache:/root/.cache/go-build/ -w /go/src/github.com/giantswarm/opsctl golang go build
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - name: get-gsctl.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=Get gsctl
+      After=network-online.target go.service
+      Requires=network-online.target go.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      User=joe
+      ExecStart=/usr/bin/mkdir -p /go/src/github.com/giantswarm
+      ExecStart=/usr/bin/git clone https://github.com/giantswarm/gsctl /go/src/github.com/giantswarm/gsctl
+      ExecStart=/usr/bin/docker run --rm -v /go:/go/ -v /tmp/go-cache:/root/.cache/go-build/ -w /go/src/github.com/giantswarm/gsctl golang go build
 
       [Install]
       WantedBy=multi-user.target
