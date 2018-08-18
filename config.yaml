@@ -82,7 +82,7 @@ storage:
       name: joe
     contents:
       inline: |
-        alias go='docker run -ti --rm -v /go:/go/ -w $(pwd) golang go'
+        alias go='docker run -ti --rm -v /go:/go/ -v /tmp/go-cache:/root/.cache/go-build/ -w $(pwd) golang go'
         alias ls='ls -FGlh'
         alias vi='/opt/bin/squashfs-root/usr/bin/nvim'
         alias vim='/opt/bin/squashfs-root/usr/bin/nvim'
@@ -360,7 +360,7 @@ systemd:
       User=joe
       ExecStart=/usr/bin/mkdir -p /go/src/github.com/giantswarm
       ExecStart=/usr/bin/git clone https://github.com/giantswarm/opsctl /go/src/github.com/giantswarm/opsctl
-      ExecStart=/usr/bin/docker run --rm -v /go:/go/ -w /go/src/github.com/giantswarm/opsctl golang go build
+      ExecStart=/usr/bin/docker run --rm -v /go:/go/ -v /tmp/go-cache:/root/.cache/go-build/ -w /go/src/github.com/giantswarm/opsctl golang go build
 
       [Install]
       WantedBy=multi-user.target
