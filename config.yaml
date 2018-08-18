@@ -56,6 +56,7 @@ storage:
 
         export GPG_TTY=$(tty)
         export PROMPT_COMMAND=prompt_command
+        export TERM=xterm
 
         export OPSCTL_GITHUB_TOKEN=$(cat /secrets/opsctl-github-token)
         export OPSCTL_GPG_PASSWORD=$(cat /secrets/opsctl-gpg-password)
@@ -271,39 +272,20 @@ systemd:
       [Install]
       WantedBy=multi-user.target
 
-  - name: get-static-get.service
-    enable: true
-    contents: |
-      [Unit]
-      Description=Get static-get
-      Type=oneshot
-      After=network-online.target opt-bin.service
-      Requires=network-online.target opt-bin.service
-      RemainAfterExit=true
-
-      [Service]
-      Type=oneshot
-      RemainAfterExit=true
-      ExecStart=/usr/bin/curl https://raw.githubusercontent.com/minos-org/minos-static/master/static-get -o /opt/bin/static-get
-      ExecStart=/usr/bin/chmod +x /opt/bin/static-get
-
-      [Install]
-      WantedBy=multi-user.target
-
   - name: get-tmux.service
     enable: true
     contents: |
       [Unit]
       Description=Get tmux
-      After=network-online.target opt-bin.service get-static-get.service
-      Requires=network-online.target opt-bin.service get-static-get.service
+      After=network-online.target opt-bin.service
+      Requires=network-online.target opt-bin.service
 
       [Service]
       Type=oneshot
       RemainAfterExit=true
-      ExecStart=/opt/bin/static-get --extract tmux
-      ExecStart=/usr/bin/mv ./tmux-1.9a/bin/tmux /opt/bin/tmux
-      ExecStart=/usr/bin/rm -rf ./tmux*
+      ExecStart=/usr/bin/curl http://s.minos.io/archive/bifrost/x86_64/tmux-1.9a-1.tar.gz -o /opt/bin/tmux.tar.gz
+      ExecStart=/usr/bin/tar xzf /opt/bin/tmux.tar.gz -C /opt/bin ./bin/tmux --strip-components=2
+      ExecStart=/bin/rm /opt/bin/tmux.tar.gz
 
       [Install]
       WantedBy=multi-user.target
