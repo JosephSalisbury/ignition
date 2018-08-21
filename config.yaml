@@ -34,13 +34,6 @@ storage:
             source /home/joe/.bash_aliases
         fi
 
-        function fetch {
-            mkdir /go/src/github.com/$1/;
-            cd /go/src/github.com/$1/;
-            git clone https://github.com/$1/$2;
-            cd /go/src/github.com/$1/$2;
-        }
-
         function prompt_command {
             EXIT_CODE=$?
             EXIT_PHRASE=''
@@ -48,6 +41,51 @@ storage:
                 EXIT_PHRASE="$EXIT_CODE-"
             fi
             export PS1="$EXIT_PHRASE\\$ "
+        }
+
+        function access {
+            local installation=""
+            local cluster_id=""
+
+            if [ "$#" -eq 1 ]; then
+                installation=$1
+            fi
+            if [ "$#" -eq 2 ]; then
+                installation=$1
+                cluster_id=$2
+            fi
+            if [ "$#" -eq 3 ]; then
+                installation=$1
+                cluster_id=$3
+            fi
+
+            if [ ! -z "$installation" ] && [ -z "$cluster_id" ]; then
+                if kubectl config use-context "giantswarm-$installation" >/dev/null 2>/dev/null; then
+                     return
+                fi
+
+                opsctl create kubeconfig --cluster "$installation" >/dev/null 2>/dev/null
+                return
+            fi
+            if [ ! -z "$installation" ] && [ ! -z "$cluster_id" ]; then
+                if kubectl config use-context "giantswarm-$cluster_id" >/dev/null 2>/dev/null; then
+                     return
+                fi
+
+                gsctl create kubeconfig \
+                    --endpoint "$installation" \
+                    --cluster "$cluster_id" \
+                    --certificate-organizations system:masters \
+                    --ttl 1d >/dev/null 2>/dev/null
+                return
+             fi
+        }
+
+        function fetch {
+            mkdir /go/src/github.com/$1/;
+            cd /go/src/github.com/$1/;
+            git clone https://github.com/$1/$2;
+            cd /go/src/github.com/$1/$2;
         }
 
         set -o vi
