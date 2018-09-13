@@ -129,7 +129,7 @@ storage:
     contents:
       inline: |
         alias go='docker run -ti --rm -v /go:/go/ -v /tmp/go-cache:/root/.cache/go-build/ -w $(pwd) golang go'
-        alias ls='ls -FGlh'
+        alias ls='ls -FGlh --color=auto'
         alias vi='/opt/bin/squashfs-root/usr/bin/nvim'
         alias vim='/opt/bin/squashfs-root/usr/bin/nvim'
 
