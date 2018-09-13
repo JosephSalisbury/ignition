@@ -88,6 +88,18 @@ storage:
             cd /go/src/github.com/$1/$2;
         }
 
+        function wl {
+            prev=$(history | cut -c 8- | tail -n 2 | head -n 1)
+            prev_command=$(echo $prev | awk '{print $1}')
+            prev_arguments=$(echo $prev | awk '{$1=""; print $0}')
+
+            if alias "$prev_command" > /dev/null; then
+                prev_command=$(alias "$prev_command" | awk -F "'" '{print $2}')
+            fi
+
+            watch --color --differences "$prev_command$prev_arguments"
+        }
+
         set -o vi
 
         chmod 400 /secrets/*
@@ -129,6 +141,7 @@ storage:
     contents:
       inline: |
         alias go='docker run -ti --rm -v /go:/go/ -v /tmp/go-cache:/root/.cache/go-build/ -w $(pwd) golang go'
+        alias k='kubectl'
         alias ls='ls -FGlh --color=auto'
         alias vi='/opt/bin/squashfs-root/usr/bin/nvim'
         alias vim='/opt/bin/squashfs-root/usr/bin/nvim'
