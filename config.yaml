@@ -300,6 +300,23 @@ storage:
 
 systemd:
   units:
+  - name: docker-pull.service
+    enable: true
+    contents: |
+      [Unit]
+      Description=Pull docker images
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=true
+      Environment=IMAGES=quay.io/josephsalisbury/openvpn:latest golang
+      ExecStart=/usr/bin/bash -c "for image in $IMAGES; do docker pull $image; done"
+
+      [Install]
+      WantedBy=multi-user.target
+
   - name: go.service
     enable: true
     contents: |
