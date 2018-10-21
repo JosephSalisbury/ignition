@@ -230,7 +230,7 @@ storage:
         set -g status-interval 1
 
         # bump right status bar length
-        set -g status-right-length 100
+        set -g status-right-length 500
 
         # add working directory and time to status bar
         set -g status-right "#(/home/joe/.tmux-right-status.sh)"
