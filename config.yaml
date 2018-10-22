@@ -162,7 +162,10 @@ storage:
         fi
 
         while [ ! -f /opt/bin/tmux ]; do echo "waiting for tmux..."; sleep 5; done
-        [[ ! $TERM =~ screen ]] && [ -z $TMUX ] && exec tmux new-session -A -s default
+
+        if [[ -z $TMUX ]]; then
+            exec tmux new-session -A -s default
+        fi
 
   - filesystem: "root"
     path: "/home/joe/.bash_aliases"
