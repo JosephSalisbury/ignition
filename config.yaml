@@ -82,10 +82,39 @@ storage:
         }
 
         function fetch {
-            mkdir /go/src/github.com/$1/;
-            cd /go/src/github.com/$1/;
-            git clone https://github.com/$1/$2;
-            cd /go/src/github.com/$1/$2;
+            local organisation=""
+            local project=""
+
+            if [[ ! -d /go ]]; then
+                echo "/go does not exist, exiting"
+                return -1
+            fi
+
+            directory=$(find /go/src/github.com/ -mindepth 2 -maxdepth 2 -type d -name $1)
+            if [[ ! -z $directory ]]; then
+                cd $directory
+                return 0
+            fi
+
+            if [[ "$#" -eq 2 ]]; then
+                organisation=$1
+                project=$2
+            fi
+            if [[ "$#" -eq 1 ]]; then
+                project=$1
+
+                if $(git ls-remote https://github.com/giantswarm/$project > /dev/null 2>&1); then
+                    organisation="giantswarm"
+                fi
+                if $(git ls-remote https://github.com/JosephSalisbury/$project > /dev/null 2>&1); then
+                    organisation="JosephSalisbury"
+                fi
+            fi
+
+            mkdir -p /go/src/github.com/$organisation/
+            cd /go/src/github.com/$organisation/
+            git clone --quiet https://github.com/$organisation/$project
+            cd /go/src/github.com/$organisation/$project
         }
 
         function image-sha {
